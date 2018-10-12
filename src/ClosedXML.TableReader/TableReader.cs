@@ -87,7 +87,16 @@ namespace ClosedXML.Excel
             DataTable dt = new DataTable();
 
             options = options ?? ReadOptions.DefaultOptions;
-
+            
+            var columns = workSheet.ColumnsUsed();
+            if (columns == null || !columns.Any())
+            {
+                //No data found
+                return dt;
+            }
+            
+            var firstColumnIndex = columns.First().FirstCell().Address.ColumnNumber;
+            var lastColumnIndex = columns.Last().FirstCell().Address.ColumnNumber;
 
             //primera fila de titulos
             bool firstRow = options.TitlesInFirstRow;
@@ -96,7 +105,7 @@ namespace ClosedXML.Excel
             if (!options.TitlesInFirstRow)
             {
                 //si no tenemos títulos en la tabla utilizamos los nombres de columna del excel para la definición del DataTable
-                foreach (var col in workSheet.ColumnsUsed())
+                foreach (var col in columns)
                 {
                     dt.Columns.Add(col.ColumnLetter());
                 }
@@ -109,9 +118,14 @@ namespace ClosedXML.Excel
                 //init with options.TitlesInFirstRow 
                 if (firstRow)
                 {
-                    foreach (IXLCell cell in row.CellsUsed())
+                    foreach (IXLCell cell in row.Cells(firstColumnIndex, lastColumnIndex))
                     {
-                        dt.Columns.Add(cell.Value?.ToString());
+                        var columnName = cell.Value?.ToString();
+                        if (string.IsNullOrWhiteSpace(columnName))
+                        {
+                            columnName = cell.WorksheetColumn().ColumnLetter();
+                        }
+                        dt.Columns.Add(columnName);
                     }
                     firstRow = false;
                 }
@@ -120,7 +134,7 @@ namespace ClosedXML.Excel
                     dt.Rows.Add();
                     int i = 0;
 
-                    foreach (IXLCell cell in row.Cells(row.FirstCellUsed().Address.ColumnNumber, row.LastCellUsed().Address.ColumnNumber))
+                    foreach (IXLCell cell in row.Cells(firstColumnIndex, lastColumnIndex))
                     {
                         dt.Rows[dt.Rows.Count - 1][i] = cell.Value.ToString();
                         i++;
